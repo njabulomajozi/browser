@@ -35,8 +35,7 @@ fn main() -> Result<(), eframe::Error> {
         "Browser MVP",
         options,
         Box::new(|cc| {
-            // Set custom font and theme
-            setup_custom_fonts(&cc.egui_ctx);
+            // Set custom theme (fonts use egui defaults)
             setup_theme(&cc.egui_ctx);
 
             // Create browser app
@@ -79,29 +78,6 @@ fn load_icon() -> egui::IconData {
         width: icon_size as u32,
         height: icon_size as u32,
     }
-}
-
-/// Set up custom fonts
-fn setup_custom_fonts(ctx: &egui::Context) {
-    let mut fonts = egui::FontDefinitions::default();
-
-    // Add proportional font
-    fonts.families.insert(
-        egui::FontFamily::Proportional,
-        vec![
-            "Hack".to_owned(),
-            "Ubuntu-Light".to_owned(),
-            "NotoEmoji-Regular".to_owned(),
-        ],
-    );
-
-    // Add monospace font
-    fonts.families.insert(
-        egui::FontFamily::Monospace,
-        vec!["Hack".to_owned(), "Ubuntu-Light".to_owned()],
-    );
-
-    ctx.set_fonts(fonts);
 }
 
 /// Set up custom theme
