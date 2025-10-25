@@ -1,0 +1,75 @@
+[workspace]
+members = [
+    "apps/desktop",
+    "packages/renderer",
+    "packages/network",
+    "packages/storage",
+    "packages/shared",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Browser MVP Contributors"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/yourusername/browser"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1.40", features = ["full"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Rendering engine - Servo (2025 API with WebViewBuilder)
+# NOTE: Servo dependency currently disabled - package 'servo' not found in git repo
+# TODO: Research correct Servo embedding approach (libservo-webview, or build as library)
+# servo = { git = "https://github.com/servo/servo", branch = "main" }
+# surfman = { git = "https://github.com/servo/surfman", branch = "main" }
+# gleam = "0.15"
+
+# GUI - we'll choose one after research
+egui = "0.30"
+eframe = { version = "0.30", default-features = false, features = ["wgpu", "persistence"] }
+# iced = "0.13"
+
+# Graphics
+wgpu = "24.0"
+winit = "0.30"
+
+# Networking
+hyper = { version = "1.0", features = ["full"] }
+hyper-rustls = "0.27"
+hyper-util = { version = "0.1", features = ["full"] }
+reqwest = { version = "0.12", features = ["rustls-tls"] }
+rustls = { version = "0.23", features = ["ring"] }  # Crypto provider for Servo
+
+# Storage
+rusqlite = { version = "0.37", features = ["bundled"] }
+lru = "0.12"
+
+# URL parsing
+url = "2.5"
+
+# Date/time
+chrono = "0.4"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true

@@ -1,0 +1,33 @@
+[package]
+name = "renderer"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+shared = { path = "../shared" }
+
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+url = { workspace = true }
+winit = { workspace = true }
+rustls = { workspace = true }
+
+# Servo rendering engine (official Git dependency method)
+# Source: https://github.com/paulrouget/servo-embedding-example
+libservo = { git = "https://github.com/servo/servo", branch = "main" }
+
+# GL context management (required by Servo)
+surfman = "0.9"
+gleam = "0.15"
+
+# For GL context and rendering
+euclid = "0.22"
+
+[lib]
+name = "renderer"
+path = "src/lib.rs"

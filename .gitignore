@@ -1,0 +1,53 @@
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+
+# Cargo
+Cargo.lock
+!Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.o
+*.so
+*.dylib
+*.dll
+
+# Test artifacts
+*.profraw
+*.profdata
+
+# Benchmarks
+/benches/target/
+
+# Coverage
+cobertura.xml
+tarpaulin-report.html
+lcov.info
+
+# Local configuration
+.env
+.env.local
+
+# Documentation build
+/target/doc/
+
+# Release artifacts
+/dist/
+/release/
+
+# Temporary files
+*.tmp
+*.log
