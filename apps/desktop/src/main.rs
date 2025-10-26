@@ -35,11 +35,17 @@ fn main() -> Result<(), eframe::Error> {
         "Browser MVP",
         options,
         Box::new(|cc| {
+            tracing::info!("eframe callback invoked - setting up browser");
+
             // Set custom theme (fonts use egui defaults)
             setup_theme(&cc.egui_ctx);
 
             // Create browser app
+            tracing::info!("Creating BrowserApp...");
             let app = BrowserApp::default();
+            tracing::info!("BrowserApp created - {} tabs, renderer: {}",
+                          app.tabs.len(),
+                          if app.renderer.is_some() { "initialized" } else { "not available" });
 
             // Wire up Servo event loop waker to egui repaint
             if let Some(ref renderer) = app.renderer {
@@ -726,6 +732,12 @@ impl BrowserApp {
 
 impl eframe::App for BrowserApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Log first frame
+        static FIRST_FRAME: std::sync::Once = std::sync::Once::new();
+        FIRST_FRAME.call_once(|| {
+            tracing::info!("First frame rendering - UI should be visible now");
+        });
+
         // Servo event loop integration (Milestone 1.3)
         if let Some(ref mut renderer) = self.renderer {
             // Process Servo compositor events
