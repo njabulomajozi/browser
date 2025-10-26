@@ -96,11 +96,7 @@ impl WryRenderer {
     /// * `window` - The winit window to attach the WebView to
     /// * `bounds` - The position and size of the WebView (for child WebView)
     #[cfg(not(target_os = "linux"))]
-    pub fn create_webview(
-        &mut self,
-        window: &impl HasWindowHandle,
-        url: &str,
-    ) -> Result<()> {
+    pub fn create_webview(&mut self, window: &impl HasWindowHandle, url: &str) -> Result<()> {
         use wry::WebViewBuilder;
 
         info!("Creating wry WebView with URL: {}", url);
@@ -127,11 +123,7 @@ impl WryRenderer {
 
     /// Create WebView on Linux (requires GTK)
     #[cfg(target_os = "linux")]
-    pub fn create_webview(
-        &mut self,
-        window: &impl HasWindowHandle,
-        url: &str,
-    ) -> Result<()> {
+    pub fn create_webview(&mut self, window: &impl HasWindowHandle, url: &str) -> Result<()> {
         use wry::WebViewBuilder;
 
         info!("Creating wry WebView (Linux/GTK) with URL: {}", url);

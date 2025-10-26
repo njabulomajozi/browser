@@ -12,7 +12,7 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segui UI', Roboto, Oxygen, Ubuntu, sans-serif;
             height: 100vh;
             display: flex;
             flex-direction: column;
@@ -25,6 +25,7 @@
             background: #e0e0e0;
             padding: 4px 4px 0 4px;
             gap: 2px;
+            height: 40px;
         }
 
         .tab {
@@ -82,6 +83,7 @@
             padding: 8px;
             background: white;
             border-bottom: 1px solid #ccc;
+            height: 48px;
         }
 
         button {
@@ -114,47 +116,23 @@
             border-color: #0066cc;
         }
 
-        /* Content Area */
-        .content {
+        /* Info message (child WebView renders below) */
+        .info {
             flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             background: white;
-            position: relative;
-        }
-
-        iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
-
-        /* Loading Indicator */
-        .loading {
-            display: none;
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: #0066cc;
-            animation: loading 1.5s infinite;
-        }
-
-        .loading.active {
-            display: block;
-        }
-
-        @keyframes loading {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
+            color: #666;
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
     <!-- Tab Bar -->
-    <div class="tab-bar">
+    <div class="tab-bar" id="tab-bar">
         <div class="tab active" data-tab-id="0">
             <span class="tab-title">New Tab</span>
-            <span class="tab-close" onclick="closeTab(0)">×</span>
         </div>
         <div class="tab-new" onclick="createTab()">+</div>
     </div>
@@ -174,38 +152,30 @@
         <button onclick="navigate()">Go</button>
     </div>
 
-    <!-- Content Area -->
-    <div class="content">
-        <div class="loading" id="loading"></div>
-        <iframe
-            id="content-frame"
-            sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
-        ></iframe>
+    <!-- Info (child WebView renders below this chrome) -->
+    <div class="info">
+        <p>Content WebView renders below (88px from top)</p>
     </div>
 
     <script>
         // Browser state
         let state = {
             tabs: [
-                { id: 0, title: 'Example Domain', url: 'https://example.com' }
+                { id: 0, title: 'New Tab', url: 'https://example.com' }
             ],
             activeTab: 0
         };
 
-        // Normalize URL for comparison (handles trailing slashes, etc.)
-        function normalizeUrl(url) {
-            try {
-                const urlObj = new URL(url);
-                return urlObj.href;
-            } catch {
-                return url;
-            }
+        // Send IPC message to Rust
+        function sendIPC(message) {
+            console.log('[IPC] Sending:', message);
+            window.ipc.postMessage(JSON.stringify(message));
         }
 
         // Update UI from state
         function updateUI() {
             // Update tab bar
-            const tabBar = document.querySelector('.tab-bar');
+            const tabBar = document.getElementById('tab-bar');
             const tabs = state.tabs.map((tab, index) => `
                 <div class="tab ${index === state.activeTab ? 'active' : ''}"
                      data-tab-id="${tab.id}"
@@ -220,27 +190,13 @@
             const activeTab = state.tabs[state.activeTab];
             if (activeTab) {
                 document.getElementById('url-input').value = activeTab.url;
-
-                // Update iframe if URL changed (use normalized comparison)
-                const iframe = document.getElementById('content-frame');
-                const currentSrc = normalizeUrl(iframe.src || '');
-                const targetUrl = normalizeUrl(activeTab.url);
-
-                console.log('[UPDATE] Comparing URLs - current:', currentSrc, 'target:', targetUrl);
-
-                if (currentSrc !== targetUrl) {
-                    console.log('[UPDATE] URLs differ, loading new URL');
-                    showLoading();
-                    iframe.src = activeTab.url;
-                } else {
-                    console.log('[UPDATE] URLs match, skipping load');
-                }
             }
         }
 
-        // Navigation functions
+        // Navigation functions (send IPC to Rust)
         function navigate() {
             const url = document.getElementById('url-input').value;
+            console.log('[NAVIGATE] Input:', url);
             let fullUrl = url;
 
             // Add protocol if missing
@@ -255,28 +211,30 @@
                 }
             }
 
+            console.log('[NAVIGATE] Processed URL:', fullUrl);
             state.tabs[state.activeTab].url = fullUrl;
-            updateUI();
+            document.getElementById('url-input').value = fullUrl;
+
+            // Send IPC message to Rust
+            sendIPC({
+                cmd: 'Navigate',
+                data: { url: fullUrl }
+            });
         }
 
         function goBack() {
-            const iframe = document.getElementById('content-frame');
-            if (iframe.contentWindow) {
-                iframe.contentWindow.history.back();
-            }
+            console.log('[NAV] Go back');
+            sendIPC({ cmd: 'GoBack' });
         }
 
         function goForward() {
-            const iframe = document.getElementById('content-frame');
-            if (iframe.contentWindow) {
-                iframe.contentWindow.history.forward();
-            }
+            console.log('[NAV] Go forward');
+            sendIPC({ cmd: 'GoForward' });
         }
 
         function reload() {
-            showLoading();
-            const iframe = document.getElementById('content-frame');
-            iframe.src = iframe.src; // Force reload
+            console.log('[NAV] Reload');
+            sendIPC({ cmd: 'Reload' });
         }
 
         function handleUrlKeypress(event) {
@@ -287,6 +245,7 @@
 
         // Tab management
         function createTab() {
+            console.log('[TAB] Create new tab');
             const newTab = {
                 id: Date.now(),
                 title: 'New Tab',
@@ -295,9 +254,11 @@
             state.tabs.push(newTab);
             state.activeTab = state.tabs.length - 1;
             updateUI();
+            navigate();
         }
 
         function closeTab(index) {
+            console.log('[TAB] Close tab', index);
             if (state.tabs.length === 1) return; // Keep at least one tab
 
             state.tabs.splice(index, 1);
@@ -305,102 +266,19 @@
                 state.activeTab = state.tabs.length - 1;
             }
             updateUI();
+            navigate();
         }
 
         function switchTab(index) {
+            console.log('[TAB] Switch to tab', index);
             state.activeTab = index;
             updateUI();
+            navigate();
         }
 
-        // Loading indicator with timeout fallback
-        let loadingTimeout = null;
-
-        function showLoading() {
-            console.log('[LOADING] showLoading() called');
-            const loadingEl = document.getElementById('loading');
-            loadingEl.classList.add('active');
-            console.log('[LOADING] Spinner shown, classes:', loadingEl.className);
-
-            // Clear any existing timeout
-            if (loadingTimeout) {
-                clearTimeout(loadingTimeout);
-            }
-
-            // Auto-hide after 10 seconds (fallback for failed loads)
-            loadingTimeout = setTimeout(() => {
-                console.warn('[LOADING] TIMEOUT - hiding spinner after 10s');
-                hideLoading();
-            }, 10000);
-        }
-
-        function hideLoading() {
-            console.log('[LOADING] hideLoading() called');
-            const loadingEl = document.getElementById('loading');
-            loadingEl.classList.remove('active');
-            console.log('[LOADING] Spinner hidden, classes:', loadingEl.className);
-
-            // Clear timeout
-            if (loadingTimeout) {
-                clearTimeout(loadingTimeout);
-                loadingTimeout = null;
-            }
-        }
-
-        // iframe load events
-        const iframe = document.getElementById('content-frame');
-
-        console.log('[INIT] Attaching iframe event listeners');
-
-        iframe.addEventListener('load', () => {
-            console.log('[IFRAME] load event fired, src:', iframe.src);
-            hideLoading();
-
-            // Try to update tab title from iframe
-            try {
-                const title = iframe.contentDocument.title;
-                console.log('[IFRAME] Got title:', title);
-                if (title) {
-                    state.tabs[state.activeTab].title = title;
-                    // Update only tab bar, NOT full updateUI() to prevent loop
-                    const tabBar = document.querySelector('.tab-bar');
-                    const tabs = state.tabs.map((tab, index) => `
-                        <div class="tab ${index === state.activeTab ? 'active' : ''}"
-                             data-tab-id="${tab.id}"
-                             onclick="switchTab(${index})">
-                            <span class="tab-title">${tab.title}</span>
-                            ${state.tabs.length > 1 ? `<span class="tab-close" onclick="event.stopPropagation(); closeTab(${index})">×</span>` : ''}
-                        </div>
-                    `).join('');
-                    tabBar.innerHTML = tabs + '<div class="tab-new" onclick="createTab()">+</div>';
-                }
-            } catch (e) {
-                // Cross-origin, can't access title - use URL as title
-                console.warn('[IFRAME] Cross-origin, cannot access title:', e.message);
-                state.tabs[state.activeTab].title = state.tabs[state.activeTab].url;
-                // Update only tab bar
-                const tabBar = document.querySelector('.tab-bar');
-                const tabs = state.tabs.map((tab, index) => `
-                    <div class="tab ${index === state.activeTab ? 'active' : ''}"
-                         data-tab-id="${tab.id}"
-                         onclick="switchTab(${index})">
-                        <span class="tab-title">${tab.title}</span>
-                        ${state.tabs.length > 1 ? `<span class="tab-close" onclick="event.stopPropagation(); closeTab(${index})">×</span>` : ''}
-                    </div>
-                `).join('');
-                tabBar.innerHTML = tabs + '<div class="tab-new" onclick="createTab()">+</div>';
-            }
-        });
-
-        // Handle iframe load errors
-        iframe.addEventListener('error', (e) => {
-            console.error('[IFRAME] error event fired:', e);
-            hideLoading();
-        });
-
-        // Initial setup: attach listeners first, then load initial page
-        // This ensures load/error events are caught
-        console.log('[INIT] Calling updateUI() to load initial page');
-        updateUI();  // This will trigger the initial page load with spinner
+        // Initial setup
+        console.log('[INIT] Browser chrome ready');
+        updateUI();
     </script>
 </body>
 </html>

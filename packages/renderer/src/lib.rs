@@ -150,14 +150,18 @@ pub enum RendererError {
     ///
     /// OpenGL context errors typically indicate driver or compatibility issues.
     /// Recovery: Update graphics drivers, use software rendering fallback
-    #[error("OpenGL context error: {0}\n\nHint: Update graphics drivers or use software rendering")]
+    #[error(
+        "OpenGL context error: {0}\n\nHint: Update graphics drivers or use software rendering"
+    )]
     GlContextError(String),
 
     /// Servo not initialized
     ///
     /// Operations requiring Servo engine were attempted before initialization.
     /// Recovery: Call initialize() before performing rendering operations
-    #[error("Servo engine not initialized\n\nHint: Call ServoRenderer::new().initialize() before use")]
+    #[error(
+        "Servo engine not initialized\n\nHint: Call ServoRenderer::new().initialize() before use"
+    )]
     NotInitialized,
 
     /// Rendering context lost
