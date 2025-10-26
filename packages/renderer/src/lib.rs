@@ -107,14 +107,20 @@
 
 use thiserror::Error;
 
-mod delegate;
-mod rendering_context;
-mod servo_wrapper;
-mod types;
-mod waker;
+// wry-based renderer (MVP implementation)
+mod wry_renderer;
+pub use wry_renderer::WryRenderer;
 
-pub use servo_wrapper::ServoRenderer;
-pub use types::{RenderedFrame, RendererConfig};
+// Servo-based renderer (future - when libservo v1.0 releases)
+// mod delegate;
+// mod rendering_context;
+// mod servo_wrapper;
+// mod waker;
+// pub use servo_wrapper::ServoRenderer;
+
+// Types
+mod types;
+pub use types::RendererConfig;
 
 /// Errors that can occur during rendering operations
 #[derive(Error, Debug)]

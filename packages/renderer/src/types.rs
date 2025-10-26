@@ -1,7 +1,5 @@
 //! Shared types for the renderer
 
-use euclid::Size2D;
-
 /// Configuration for the renderer
 #[derive(Debug, Clone)]
 pub struct RendererConfig {
@@ -31,6 +29,7 @@ impl Default for RendererConfig {
 
 /// A rendered frame from Servo
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct RenderedFrame {
     /// Width in device pixels
     pub width: u32,
@@ -40,6 +39,7 @@ pub struct RenderedFrame {
     pub pixels: Vec<u8>,
 }
 
+#[allow(dead_code)]
 impl RenderedFrame {
     /// Create a new rendered frame
     pub fn new(width: u32, height: u32, pixels: Vec<u8>) -> Self {
@@ -53,11 +53,6 @@ impl RenderedFrame {
             height,
             pixels,
         }
-    }
-
-    /// Get the size of the frame
-    pub fn size(&self) -> Size2D<u32, euclid::UnknownUnit> {
-        Size2D::new(self.width, self.height)
     }
 
     /// Check if the frame is empty

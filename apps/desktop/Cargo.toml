@@ -18,15 +18,12 @@ anyhow = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
-# GUI (we'll finalize after research)
-eframe = { workspace = true }
-egui = { workspace = true }
+# Windowing and WebView (tao instead of winit for wry compatibility)
+tao = { workspace = true }
+wry = { workspace = true }
 
 # URL encoding for search queries
 urlencoding = "2.1"
-
-# TLS crypto provider for Servo
-rustls = { workspace = true }
 
 [[bin]]
 name = "browser"

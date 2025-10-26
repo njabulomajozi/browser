@@ -1,0 +1,214 @@
+//! Browser MVP - Desktop Application
+//!
+//! Simplified architecture using eframe for UI
+//! Note: wry WebView integration requires platform-specific window handling
+
+use eframe::egui;
+use renderer::WryRenderer;
+use tracing::{info, Level};
+
+fn main() -> Result<(), eframe::Error> {
+    // Initialize logging
+    tracing_subscriber::fmt()
+        .with_max_level(Level::INFO)
+        .with_target(false)
+        .init();
+
+    info!("Starting Browser MVP (eframe + wry)");
+
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([1280.0, 832.0])
+            .with_title("Browser MVP"),
+        ..Default::default()
+    };
+
+    eframe::run_native(
+        "Browser MVP",
+        options,
+        Box::new(|_cc| Ok(Box::new(BrowserApp::default()))),
+    )
+}
+
+/// Tab state
+struct Tab {
+    id: usize,
+    title: String,
+    url: String,
+}
+
+/// Browser application
+struct BrowserApp {
+    tabs: Vec<Tab>,
+    active_tab: usize,
+    url_input: String,
+    renderer: Option<WryRenderer>,
+}
+
+impl Default for BrowserApp {
+    fn default() -> Self {
+        info!("Creating BrowserApp");
+
+        // Create wry renderer
+        let renderer = match WryRenderer::new() {
+            Ok(r) => {
+                info!("WryRenderer created successfully");
+                Some(r)
+            }
+            Err(e) => {
+                tracing::error!("Failed to create WryRenderer: {}", e);
+                None
+            }
+        };
+
+        Self {
+            tabs: vec![Tab {
+                id: 0,
+                title: "New Tab".to_string(),
+                url: "https://example.com".to_string(),
+            }],
+            active_tab: 0,
+            url_input: "https://example.com".to_string(),
+            renderer,
+        }
+    }
+}
+
+impl eframe::App for BrowserApp {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        // Top panel: tabs
+        egui::TopBottomPanel::top("tabs").show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                for (i, tab) in self.tabs.iter().enumerate() {
+                    if ui
+                        .selectable_label(i == self.active_tab, &tab.title)
+                        .clicked()
+                    {
+                        self.active_tab = i;
+                    }
+                }
+                if ui.button("+").clicked() {
+                    self.create_tab();
+                }
+            });
+        });
+
+        // URL bar
+        egui::TopBottomPanel::top("url_bar").show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                if ui.button("←").clicked() {
+                    self.go_back();
+                }
+                if ui.button("→").clicked() {
+                    self.go_forward();
+                }
+                if ui.button("↻").clicked() {
+                    self.reload();
+                }
+
+                let response = ui.text_edit_singleline(&mut self.url_input);
+                if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                    self.navigate(&self.url_input.clone());
+                }
+            });
+        });
+
+        // Central panel - WebView area placeholder
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.heading("Browser MVP - wry Integration");
+                ui.add_space(20.0);
+
+                if let Some(ref renderer) = self.renderer {
+                    ui.label("✓ wry WebView initialized");
+
+                    if let Some(url) = renderer.get_url() {
+                        ui.label(format!("Current URL: {}", url));
+                    }
+
+                    if renderer.is_loading() {
+                        ui.spinner();
+                        ui.label("Loading...");
+                    }
+                } else {
+                    ui.colored_label(egui::Color32::RED, "✗ wry WebView not available");
+                }
+
+                ui.add_space(20.0);
+                ui.separator();
+                ui.add_space(10.0);
+
+                ui.label("Note: wry WebView rendering requires platform-specific window integration.");
+                ui.label("The WebView cannot be directly embedded in egui panels.");
+                ui.label("Next step: Implement child window positioning for WebView content.");
+            });
+        });
+
+        // Request repaint for animations
+        ctx.request_repaint();
+    }
+}
+
+impl BrowserApp {
+    fn create_tab(&mut self) {
+        let id = self.tabs.len();
+        self.tabs.push(Tab {
+            id,
+            title: "New Tab".to_string(),
+            url: "about:blank".to_string(),
+        });
+        self.active_tab = id;
+        info!("Created tab {}", id);
+    }
+
+    fn navigate(&mut self, url: &str) {
+        info!("Navigating to: {}", url);
+
+        let url = if url.contains("://") {
+            url.to_string()
+        } else {
+            format!("https://{}", url)
+        };
+
+        if let Some(ref mut renderer) = self.renderer {
+            // Note: This will fail because WebView not yet created with window
+            // WebView creation requires access to the native window handle
+            // which eframe doesn't expose in a straightforward way
+            match renderer.load_url(&url) {
+                Ok(_) => {
+                    if let Some(tab) = self.tabs.get_mut(self.active_tab) {
+                        tab.url = url.clone();
+                    }
+                    info!("Navigation initiated");
+                }
+                Err(e) => {
+                    tracing::error!("Navigation failed: {} (WebView not created - needs window handle)", e);
+                }
+            }
+        }
+    }
+
+    fn go_back(&mut self) {
+        if let Some(ref mut renderer) = self.renderer {
+            if let Err(e) = renderer.go_back() {
+                tracing::error!("Go back failed: {}", e);
+            }
+        }
+    }
+
+    fn go_forward(&mut self) {
+        if let Some(ref mut renderer) = self.renderer {
+            if let Err(e) = renderer.go_forward() {
+                tracing::error!("Go forward failed: {}", e);
+            }
+        }
+    }
+
+    fn reload(&mut self) {
+        if let Some(ref mut renderer) = self.renderer {
+            if let Err(e) = renderer.reload() {
+                tracing::error!("Reload failed: {}", e);
+            }
+        }
+    }
+}

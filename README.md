@@ -1,6 +1,6 @@
 # Browser MVP
 
-**A privacy-focused, non-Chromium web browser built with Rust and Servo.**
+**A cross-platform web browser built with Rust and wry (platform WebView wrapper).**
 
 [![CI](https://github.com/yourusername/browser/workflows/CI/badge.svg)](https://github.com/yourusername/browser/actions)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE)
@@ -15,10 +15,10 @@
 - ✅ CI/CD pipeline
 - ✅ Linting and formatting configuration
 - ✅ Basic UI with egui (tabs, URL bar, navigation)
-- ⏳ Servo rendering engine integration
+- ✅ wry WebView integration (platform-native rendering)
 - ⏳ URL navigation functionality
 
-**Current Focus**: Integrating Servo rendering engine
+**Current Focus**: Building browser UI with wry WebView
 
 ---
 

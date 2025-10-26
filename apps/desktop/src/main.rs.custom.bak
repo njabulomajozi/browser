@@ -1,0 +1,462 @@
+//! Browser MVP - Desktop Application
+//!
+//! Hybrid architecture using:
+//! - egui for browser chrome (tabs, URL bar, toolbar)
+//! - wry WebView for web content rendering
+//! - winit for window management
+//!
+//! This approach provides:
+//! - Native web rendering via platform WebView (WebKit/WebView2/WebKitGTK)
+//! - Consistent UI chrome via egui
+//! - Good performance without complex pixel reading
+
+use anyhow::Result;
+use egui_winit::State as EguiState;
+use renderer::WryRenderer;
+use std::sync::Arc;
+use tracing::{info, Level};
+use tracing_subscriber;
+use winit::{
+    application::ApplicationHandler,
+    event::WindowEvent,
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
+    window::{Window, WindowId},
+};
+
+/// Browser application state
+struct BrowserApp {
+    // Window and rendering
+    window: Option<Arc<Window>>,
+    egui_state: Option<EguiState>,
+    egui_renderer: Option<egui_wgpu::Renderer>,
+    surface: Option<wgpu::Surface<'static>>,
+    device: Option<wgpu::Device>,
+    queue: Option<wgpu::Queue>,
+    surface_config: Option<wgpu::SurfaceConfiguration>,
+
+    // WebView rendering
+    renderer: Option<WryRenderer>,
+
+    // UI state
+    tabs: Vec<Tab>,
+    active_tab: usize,
+    url_input: String,
+}
+
+/// Tab state
+struct Tab {
+    id: usize,
+    title: String,
+    url: String,
+}
+
+impl Default for BrowserApp {
+    fn default() -> Self {
+        Self {
+            window: None,
+            egui_state: None,
+            egui_renderer: None,
+            surface: None,
+            device: None,
+            queue: None,
+            surface_config: None,
+            renderer: None,
+            tabs: vec![Tab {
+                id: 0,
+                title: "New Tab".to_string(),
+                url: "about:blank".to_string(),
+            }],
+            active_tab: 0,
+            url_input: String::new(),
+        }
+    }
+}
+
+impl ApplicationHandler for BrowserApp {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        if self.window.is_some() {
+            return; // Already initialized
+        }
+
+        info!("Creating browser window");
+
+        // Create window
+        let window_attrs = Window::default_attributes()
+            .with_title("Browser MVP")
+            .with_inner_size(winit::dpi::LogicalSize::new(1280, 832));
+
+        let window = Arc::new(event_loop.create_window(window_attrs).unwrap());
+
+        // Initialize egui
+        let egui_ctx = egui::Context::default();
+        let egui_state = EguiState::new(
+            egui_ctx.clone(),
+            egui::ViewportId::ROOT,
+            &window,
+            None,
+            None,
+            None,
+        );
+
+        // Initialize wgpu for egui rendering
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::PRIMARY,
+            ..Default::default()
+        });
+
+        let surface = instance.create_surface(window.clone()).unwrap();
+
+        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::default(),
+            compatible_surface: Some(&surface),
+            force_fallback_adapter: false,
+        }))
+        .unwrap();
+
+        let (device, queue) = pollster::block_on(adapter.request_device(
+            &wgpu::DeviceDescriptor {
+                required_features: wgpu::Features::empty(),
+                required_limits: wgpu::Limits::default(),
+                memory_hints: wgpu::MemoryHints::default(),
+                label: None,
+            },
+            None,
+        ))
+        .unwrap();
+
+        let surface_format = surface.get_capabilities(&adapter).formats[0];
+        let size = window.inner_size();
+
+        let surface_config = wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format: surface_format,
+            width: size.width,
+            height: size.height,
+            present_mode: wgpu::PresentMode::Fifo,
+            alpha_mode: wgpu::CompositeAlphaMode::Auto,
+            view_formats: vec![],
+            desired_maximum_frame_latency: 2,
+        };
+
+        surface.configure(&device, &surface_config);
+
+        let egui_renderer = egui_wgpu::Renderer::new(&device, surface_format, None, 1, false);
+
+        // Initialize wry renderer
+        let mut wry_renderer = WryRenderer::new().unwrap();
+
+        // Create WebView with initial URL
+        let initial_url = "https://example.com";
+        info!("Creating wry WebView");
+
+        if let Err(e) = wry_renderer.create_webview(&*window, initial_url) {
+            tracing::error!("Failed to create WebView: {}", e);
+        } else {
+            info!("WebView created successfully");
+        }
+
+        // Store state
+        self.window = Some(window);
+        self.egui_state = Some(egui_state);
+        self.egui_renderer = Some(egui_renderer);
+        self.surface = Some(surface);
+        self.device = Some(device);
+        self.queue = Some(queue);
+        self.surface_config = Some(surface_config);
+        self.renderer = Some(wry_renderer);
+
+        self.url_input = initial_url.to_string();
+
+        info!("Browser window initialized");
+    }
+
+    fn window_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        _window_id: WindowId,
+        event: WindowEvent,
+    ) {
+        let Some(ref window) = self.window else {
+            return;
+        };
+
+        let Some(ref mut egui_state) = self.egui_state else {
+            return;
+        };
+
+        // Let egui handle the event first
+        let response = egui_state.on_window_event(window, &event);
+
+        if response.consumed {
+            return; // egui consumed the event
+        }
+
+        match event {
+            WindowEvent::CloseRequested => {
+                info!("Close requested");
+                event_loop.exit();
+            }
+            WindowEvent::Resized(new_size) => {
+                if let Some(ref device) = self.device {
+                    if let Some(ref surface) = self.surface {
+                        if let Some(ref mut config) = self.surface_config {
+                            config.width = new_size.width;
+                            config.height = new_size.height;
+                            surface.configure(device, config);
+                            window.request_redraw();
+                        }
+                    }
+                }
+            }
+            WindowEvent::RedrawRequested => {
+                self.render();
+            }
+            _ => {}
+        }
+    }
+
+    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+        if let Some(ref window) = self.window {
+            window.request_redraw();
+        }
+    }
+}
+
+impl BrowserApp {
+    fn render(&mut self) {
+        // Extract all needed references first
+        let window = match self.window.as_ref() {
+            Some(w) => w,
+            None => return,
+        };
+
+        let surface = match self.surface.as_ref() {
+            Some(s) => s,
+            None => return,
+        };
+
+        let device = match self.device.as_ref() {
+            Some(d) => d,
+            None => return,
+        };
+
+        let queue = match self.queue.as_ref() {
+            Some(q) => q,
+            None => return,
+        };
+
+        // Run egui frame
+        let egui_state = match self.egui_state.as_mut() {
+            Some(es) => es,
+            None => return,
+        };
+
+        let raw_input = egui_state.take_egui_input(window);
+        let egui_ctx = egui_state.egui_ctx().clone();
+
+        // Run UI (captures needed state)
+        let renderer = self.renderer.as_ref();
+        let tabs = &self.tabs;
+        let active_tab = self.active_tab;
+        let url_input = &mut self.url_input;
+
+        let full_output = egui_ctx.run(raw_input, |ctx| {
+            render_ui(ctx, renderer, tabs, active_tab, url_input);
+        });
+
+        egui_state.handle_platform_output(window, full_output.platform_output);
+
+        // Get surface texture
+        let surface_texture = match surface.get_current_texture() {
+            Ok(texture) => texture,
+            Err(_) => return,
+        };
+
+        let view = surface_texture
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+
+        // Create encoder
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("egui encoder"),
+        });
+
+        let screen_descriptor = egui_wgpu::ScreenDescriptor {
+            size_in_pixels: [
+                self.surface_config.as_ref().unwrap().width,
+                self.surface_config.as_ref().unwrap().height,
+            ],
+            pixels_per_point: window.scale_factor() as f32,
+        };
+
+        // Tessellate
+        let primitives = egui_ctx.tessellate(full_output.shapes, full_output.pixels_per_point);
+
+        // Now get mutable reference to renderer for rendering operations
+        let egui_renderer = match self.egui_renderer.as_mut() {
+            Some(er) => er,
+            None => return,
+        };
+
+        // Update textures
+        for (id, image_delta) in &full_output.textures_delta.set {
+            egui_renderer.update_texture(device, queue, *id, image_delta);
+        }
+
+        // Update buffers
+        egui_renderer.update_buffers(device, queue, &mut encoder, &primitives, &screen_descriptor);
+
+        // Render
+        let command_buffer = {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("egui render pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+
+            egui_renderer.render(&mut render_pass, &primitives, &screen_descriptor);
+            drop(render_pass);  // Explicitly drop render_pass
+
+            encoder.finish()
+        };
+
+        // Free textures
+        for id in &full_output.textures_delta.free {
+            egui_renderer.free_texture(id);
+        }
+
+        // Submit and present
+        queue.submit(Some(command_buffer));
+        surface_texture.present();
+    }
+
+    fn create_tab(&mut self) {
+        let id = self.tabs.len();
+        self.tabs.push(Tab {
+            id,
+            title: "New Tab".to_string(),
+            url: "about:blank".to_string(),
+        });
+        self.active_tab = id;
+    }
+
+    fn navigate(&mut self, url: &str) {
+        info!("Navigating to: {}", url);
+
+        let url = if url.contains("://") {
+            url.to_string()
+        } else {
+            format!("https://{}", url)
+        };
+
+        if let Some(ref mut renderer) = self.renderer {
+            if let Err(e) = renderer.load_url(&url) {
+                tracing::error!("Navigation failed: {}", e);
+            } else {
+                if let Some(tab) = self.tabs.get_mut(self.active_tab) {
+                    tab.url = url.clone();
+                }
+            }
+        }
+    }
+
+    fn go_back(&mut self) {
+        if let Some(ref mut renderer) = self.renderer {
+            let _ = renderer.go_back();
+        }
+    }
+
+    fn go_forward(&mut self) {
+        if let Some(ref mut renderer) = self.renderer {
+            let _ = renderer.go_forward();
+        }
+    }
+
+    fn reload(&mut self) {
+        if let Some(ref mut renderer) = self.renderer {
+            let _ = renderer.reload();
+        }
+    }
+}
+
+/// Standalone UI rendering function
+fn render_ui(
+    ctx: &egui::Context,
+    renderer: Option<&WryRenderer>,
+    tabs: &[Tab],
+    active_tab: usize,
+    url_input: &mut String,
+) {
+    // Top panel: tabs
+    egui::TopBottomPanel::top("tabs").show(ctx, |ui| {
+        ui.horizontal(|ui| {
+            for (i, tab) in tabs.iter().enumerate() {
+                ui.selectable_label(i == active_tab, &tab.title);
+                // Note: Tab switching requires mutable self, handled by BrowserApp
+            }
+            if ui.button("+").clicked() {
+                // Note: Creating tabs requires mutable self, handled by BrowserApp
+            }
+        });
+    });
+
+    // URL bar
+    egui::TopBottomPanel::top("url_bar").show(ctx, |ui| {
+        ui.horizontal(|ui| {
+            ui.button("←"); // Back - handled by BrowserApp
+            ui.button("→"); // Forward - handled by BrowserApp
+            ui.button("↻"); // Reload - handled by BrowserApp
+
+            ui.text_edit_singleline(url_input);
+            // Note: Navigation requires mutable renderer, handled by BrowserApp
+        });
+    });
+
+    // Central panel: WebView renders here
+    // egui just reserves the space, wry WebView renders the actual content
+    egui::CentralPanel::default().show(ctx, |ui| {
+        ui.label("Web content renders here (wry WebView)");
+
+        if let Some(renderer) = renderer {
+            if let Some(url) = renderer.get_url() {
+                ui.label(format!("Current URL: {}", url));
+            }
+
+            if renderer.is_loading() {
+                ui.spinner();
+            }
+        }
+    });
+
+    // Request continuous repaint
+    ctx.request_repaint();
+}
+
+fn main() -> Result<()> {
+    // Initialize logging
+    tracing_subscriber::fmt()
+        .with_max_level(Level::INFO)
+        .with_target(false)
+        .init();
+
+    info!("Starting Browser MVP (wry + egui)");
+
+    // Create event loop
+    let event_loop = EventLoop::new()?;
+    event_loop.set_control_flow(ControlFlow::Poll);
+
+    // Create and run app
+    let mut app = BrowserApp::default();
+    event_loop.run_app(&mut app)?;
+
+    Ok(())
+}

@@ -1,20 +1,20 @@
 # Browser MVP Development Workflow
 
-Non-Chromium web browser built with Rust, Servo rendering engine, and egui. Desktop application (Linux, macOS, Windows) focused on privacy, performance, and memory safety.
+Cross-platform web browser built with Rust and wry (platform WebView wrapper). Desktop application (Linux, macOS, Windows) focused on performance and memory safety.
 
 ---
 
 ## 🎯 Quick Reference
 
-**Tech Stack:** Rust 1.70+ · Servo (rendering) · egui/iced (UI) · winit (windowing) · wgpu (graphics) · SQLite (storage) · tokio (async)
+**Tech Stack:** Rust 1.70+ · wry 0.47 (WebView) · tao 0.30 (windowing) · SQLite (storage) · tokio (async)
 
 **Key Concepts:**
 
-- Multi-process architecture (main + renderer processes per tab)
+- Platform WebView rendering (WKWebView/WebView2/WebKitGTK)
 - Memory safety via Rust ownership model
-- Process isolation for tab security
+- Future: Multi-process architecture for tab isolation
 - Custom HTTP client with caching
-- No Chromium/WebKit dependency - pure Servo rendering
+- Production-ready stack (powers Tauri)
 
 **Architecture:** See [/docs/plan/architecture.md](docs/plan/architecture.md) · [/docs/plan/requirements.md](docs/plan/requirements.md)
 
@@ -49,7 +49,7 @@ rustc --version  # Should be 1.70+
 rustup component add clippy rustfmt
 ```
 
-**Why**: Project uses specific Rust features and Servo requires recent toolchain.
+**Why**: Project uses specific Rust features requiring recent toolchain.
 
 ### 3. Build & Development (MANDATORY WORKFLOW)
 
@@ -72,7 +72,7 @@ just run          # Starts the desktop app
 
 **Common Issues:**
 
-- **Servo build failures**: Servo is large and complex. First build may take 10-30 minutes. Be patient.
+- **wry platform dependencies**: Ensure WebView libraries installed (WebKitGTK on Linux, WebView2 on Windows)
 - **Linker errors**: May need system dependencies (see Platform Setup below)
 - **clippy warnings**: Fix ALL clippy warnings before committing
 
@@ -85,7 +85,7 @@ just run          # Starts the desktop app
 - ✅ Run rustfmt (`cargo fmt --all`)
 - ✅ Test on actual target platform (not just cross-compile)
 - ✅ **Test with real websites** - don't just test with hardcoded HTML
-- ✅ **Check console for Servo errors** - logs go to stderr
+- ✅ **Check console for WebView errors** - logs go to stderr
 
 **Testing Rules:**
 
@@ -118,16 +118,16 @@ https://www.twitter.com
 **When you encounter issues or blockers**:
 
 - ❌ **DO NOT** skip the task and mark it complete
-- ❌ **DO NOT** work around Servo limitations without documenting them
+- ❌ **DO NOT** work around WebView limitations without documenting them
 - ✅ **DO** use AskUserQuestion tool to clarify requirements
 - ✅ **DO** add the blocker to todo list and report it
-- ✅ **DO** check Servo issue tracker for known bugs before debugging
+- ✅ **DO** check wry/tao issue trackers for known bugs before debugging
 - ✅ **DO** involve the user before making architectural changes
 
 **Examples**:
 
-- Servo API confusing? Check Servo examples repo, ask user
-- Build failing? Check system deps, report full error
+- wry API confusing? Check Tauri examples repo, ask user
+- Build failing? Check system deps (WebView libraries), report full error
 - Unclear requirements? Clarify with user first
 - Found better approach? Discuss with user before changing plan
 
@@ -141,7 +141,7 @@ Use military-style concise reporting. Prioritize clarity and speed over grammar.
 - Use telegram-style brevity: omit articles (a/an/the), auxiliary verbs when clear
 - State facts directly: "Found 3 bugs" not "I have found three bugs"
 - Use bullet points for multiple items
-- File paths with line numbers: `servo.rs:142`
+- File paths with line numbers: `wry_renderer.rs:142`
 - Status first, details after: "✅ Complete. Implemented X, Y, Z"
 
 ❌ **DON'T**:
@@ -168,11 +168,11 @@ and switching between tabs."
 
 ❌ Verbose:
 "I encountered a build error when trying to compile the project.
-It appears that Servo requires some system libraries that are not installed."
+It appears that WebKitGTK requires some system libraries that are not installed."
 
 ✅ Concise (BLUF):
-"❌ Build failed. Missing libx11-dev, libxcb-dev.
-Fix: `sudo apt install libx11-dev libxcb-dev`"
+"❌ Build failed. Missing webkit2gtk-4.0.
+Fix: `sudo apt install libwebkit2gtk-4.0-dev`"
 ```
 
 ### 6. Testing Integrity
@@ -205,12 +205,11 @@ Context7 provides up-to-date documentation for Rust crates. Use it as your PRIMA
 
 ```bash
 # Examples of Context7 usage:
-@context7 servo embedding API              # Servo integration
-@context7 egui immediate mode gui          # UI framework
+@context7 wry webview                      # WebView rendering
+@context7 tao windowing                    # Window management
 @context7 tokio async runtime              # Async programming
 @context7 rusqlite sqlite database         # Storage layer
 @context7 hyper http client                # Networking
-@context7 wgpu webgpu graphics             # Graphics rendering
 ```
 
 **When to use Context7:**
@@ -224,8 +223,8 @@ Context7 provides up-to-date documentation for Rust crates. Use it as your PRIMA
 **Use Internet Search for:**
 
 - Browser architecture best practices (Chromium, Firefox design docs)
-- Servo-specific issues (GitHub issues, Discord)
-- Cross-platform GUI patterns
+- wry/Tauri-specific issues (GitHub issues, Discord)
+- Cross-platform WebView patterns
 - Performance optimization techniques
 - Security best practices for browsers
 
@@ -246,7 +245,7 @@ Every task should follow this complete workflow:
 - [ ] Research requirements and constraints
 - [ ] Review existing code and patterns
 - [ ] Use Context7 for Rust crate documentation
-- [ ] Check Servo examples and documentation
+- [ ] Check wry/Tauri examples and documentation
 - [ ] Design component API and data structures
 - [ ] Create implementation plan with TodoWrite
 
@@ -297,11 +296,11 @@ Think in layers before coding:
 **Linux (Ubuntu/Debian)**:
 
 ```bash
-# Install system dependencies for Servo and GUI
+# Install system dependencies for wry (WebKitGTK on Linux)
 sudo apt install -y \
-  libx11-dev libxcb-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
-  libssl-dev pkg-config cmake python3 \
-  libfontconfig1-dev libfreetype6-dev libharfbuzz-dev
+  libwebkit2gtk-4.0-dev \
+  libssl-dev pkg-config \
+  libgtk-3-dev
 
 # Install Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -354,7 +353,7 @@ rustup show
 # 3. Install just command runner
 cargo install just
 
-# 4. Build the project (first build takes 10-30 min for Servo)
+# 4. Build the project
 just build
 
 # 5. Run tests
@@ -373,7 +372,7 @@ browser/
 ├── apps/
 │   └── desktop/              # Main desktop application binary
 ├── packages/
-│   ├── renderer/             # Servo rendering engine wrapper
+│   ├── renderer/             # wry WebView wrapper
 │   ├── network/              # HTTP client and caching
 │   ├── storage/              # SQLite database layer
 │   └── shared/               # Shared types and utilities
@@ -390,7 +389,8 @@ All shared dependencies defined in root `Cargo.toml`:
 tokio = { version = "1.40", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 anyhow = "1.0"
-servo = { git = "https://github.com/servo/servo", branch = "main" }
+tao = "0.30"
+wry = "0.47"
 ```
 
 **Using Workspace Dependencies:**
@@ -398,7 +398,7 @@ servo = { git = "https://github.com/servo/servo", branch = "main" }
 ```toml
 # In packages/renderer/Cargo.toml
 [dependencies]
-servo = { workspace = true }
+wry = { workspace = true }
 tokio = { workspace = true }
 ```
 
@@ -534,7 +534,7 @@ pub async fn load_resources(&self, urls: Vec<Url>) -> Vec<Result<Resource>> {
 - Never use `unsafe` without thorough justification
 - If using `unsafe`, document invariants clearly
 - Use `#[deny(unsafe_code)]` in most crates
-- Let Servo handle unsafe rendering code
+- Let wry handle unsafe platform WebView code
 
 ### Development Commands
 
@@ -616,91 +616,81 @@ cargo bloat --release -n 20
 cargo clean
 ```
 
-### Servo Integration Guidelines
+### wry WebView Integration Guidelines
 
-**CRITICAL: Servo is Complex**
+**wry Integration Pattern (Tauri-based)**
 
-Servo is a full browser engine with complex API. Follow these principles:
+wry provides platform-native WebView rendering. Follow these principles:
 
-**1. Start with Servo Examples:**
-
-```bash
-# Clone Servo to study examples
-git clone https://github.com/servo/servo
-cd servo/examples
-
-# Study minimal embedding example
-# These are your reference for API usage
-```
-
-**2. Process Isolation:**
+**1. Use tao for Windowing:**
 
 ```rust
-// Each tab runs Servo in separate process
-use std::process::{Command, Child};
+// tao is Tauri's winit fork, designed for wry compatibility
+use tao::{
+    event_loop::EventLoop,
+    window::WindowBuilder,
+};
+use wry::WebViewBuilder;
 
-pub struct RendererProcess {
-    child: Child,
-    ipc_tx: Sender<IpcMessage>,
-    ipc_rx: Receiver<IpcMessage>,
-}
+let event_loop = EventLoop::new();
+let window = WindowBuilder::new()
+    .with_title("Browser MVP")
+    .build(&event_loop)?;
 
-impl RendererProcess {
-    pub fn spawn(tab_id: TabId) -> Result<Self> {
-        let child = Command::new("renderer-subprocess")
-            .arg(format!("--tab-id={}", tab_id))
-            .spawn()?;
-
-        // Set up IPC channels
-        // ...
-
-        Ok(Self { child, ipc_tx, ipc_rx })
-    }
-}
+let webview = WebViewBuilder::new()
+    .with_url("https://example.com")
+    .build(&window)?;
 ```
 
-**3. IPC Message Passing:**
+**2. Handle Navigation:**
 
 ```rust
-use serde::{Serialize, Deserialize};
+use wry::WebViewBuilder;
 
-#[derive(Serialize, Deserialize, Debug)]
-pub enum IpcMessage {
-    // Main -> Renderer
-    LoadUrl { url: String },
-    Reload,
-    Stop,
-    GoBack,
-    GoForward,
+let webview = WebViewBuilder::new()
+    .with_url(initial_url)
+    .with_navigation_handler(|uri: String| {
+        println!("Navigating to: {}", uri);
+        true // Allow navigation
+    })
+    .build(&window)?;
 
-    // Renderer -> Main
-    NavigationStarted { url: String },
-    NavigationComplete { title: String, url: String },
-    RenderFrame { pixels: Vec<u8>, width: u32, height: u32 },
-    ConsoleLog { message: String, level: LogLevel },
-}
+// Navigate programmatically
+webview.load_url("https://example.com")?;
 ```
 
-**4. Handle Servo Events:**
+**3. JavaScript Evaluation:**
 
 ```rust
-use servo::compositing::windowing::WindowEvent;
+// Execute JavaScript in WebView
+webview.evaluate_script("document.title")?;
 
-impl ServoRenderer {
-    pub fn handle_events(&mut self) {
-        while let Ok(event) = self.event_rx.try_recv() {
-            match event {
-                WindowEvent::LoadUrl(url) => {
-                    self.servo.handle_events(vec![WindowEvent::LoadUrl(url)]);
-                }
-                WindowEvent::Reload => {
-                    self.servo.handle_events(vec![WindowEvent::Reload]);
-                }
-                // ... handle other events
-            }
-        }
-    }
-}
+// Use for navigation controls
+webview.evaluate_script("window.history.back()")?;
+webview.evaluate_script("window.history.forward()")?;
+webview.evaluate_script("window.location.reload()")?;
+```
+
+**4. Platform-Specific Considerations:**
+
+```rust
+// macOS: Use WKWebView (WebKit)
+#[cfg(target_os = "macos")]
+let webview = WebViewBuilder::new()
+    .with_url(url)
+    .build(&window)?;
+
+// Windows: Use WebView2 (Chromium-based)
+#[cfg(target_os = "windows")]
+let webview = WebViewBuilder::new()
+    .with_url(url)
+    .build(&window)?;
+
+// Linux: Use WebKitGTK
+#[cfg(target_os = "linux")]
+let webview = WebViewBuilder::new()
+    .with_url(url)
+    .build(&window)?;
 ```
 
 ### GUI Framework Best Practices
@@ -878,7 +868,7 @@ Follow Conventional Commits for Rust projects:
 ```
 
 **Types:** feat, fix, docs, style, refactor, perf, test, build, chore
-**Scopes:** renderer, ui, network, storage, desktop, servo
+**Scopes:** renderer, ui, network, storage, desktop, wry
 
 **Example:**
 
@@ -1041,12 +1031,12 @@ async fn test_concurrent_page_loads() {
 ```rust
 // benches/page_load.rs
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use browser_renderer::ServoRenderer;
+use browser_renderer::WryRenderer;
 
 fn bench_simple_page_load(c: &mut Criterion) {
     c.bench_function("load_simple_html", |b| {
         b.iter(|| {
-            let mut renderer = ServoRenderer::new();
+            let mut renderer = WryRenderer::new();
             renderer.load_html(black_box("<html><body><h1>Test</h1></body></html>"));
         });
     });
@@ -1055,7 +1045,7 @@ fn bench_simple_page_load(c: &mut Criterion) {
 fn bench_complex_page_load(c: &mut Criterion) {
     c.bench_function("load_wikipedia", |b| {
         b.iter(|| {
-            let mut renderer = ServoRenderer::new();
+            let mut renderer = WryRenderer::new();
             renderer.load_url(black_box("https://en.wikipedia.org/wiki/Rust"));
         });
     });
@@ -1241,11 +1231,11 @@ browser/
 │       └── Cargo.toml
 │
 ├── packages/
-│   ├── renderer/             # Servo wrapper
+│   ├── renderer/             # wry WebView wrapper
 │   │   ├── src/
 │   │   │   ├── lib.rs
-│   │   │   ├── servo.rs
-│   │   │   └── compositor.rs
+│   │   │   ├── wry_renderer.rs
+│   │   │   └── types.rs
 │   │   └── Cargo.toml
 │   │
 │   ├── network/              # HTTP client
@@ -1317,9 +1307,10 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 
 # Rendering engine
-servo = { git = "https://github.com/servo/servo", branch = "main" }
+tao = "0.30"
+wry = "0.47"
 
-# GUI
+# Storage
 egui = "0.30"
 eframe = { version = "0.30", features = ["persistence"] }
 # OR: iced = "0.13"
@@ -1462,12 +1453,12 @@ pre-commit: fmt check test
 
 ### Resources & References
 
-**Servo Documentation:**
+**wry/Tauri Documentation:**
 
-- Official Site: https://servo.org/
-- GitHub: https://github.com/servo/servo
-- Examples: https://github.com/servo/servo/tree/main/examples
-- Wiki: https://github.com/servo/servo/wiki
+- wry GitHub: https://github.com/tauri-apps/wry
+- Tauri Docs: https://tauri.app/
+- tao (windowing): https://github.com/tauri-apps/tao
+- Tauri Examples: https://github.com/tauri-apps/tauri/tree/dev/examples
 
 **Rust GUI:**
 
@@ -1505,7 +1496,7 @@ pre-commit: fmt check test
 **Quick Checklist for Every Task:**
 
 - [ ] Use Context7 for Rust crate documentation
-- [ ] Check Servo examples for API usage patterns
+- [ ] Check wry/Tauri examples for API usage patterns
 - [ ] Write unit tests for new functions
 - [ ] Run `just check` before committing
 - [ ] Use Rust ownership to encode invariants
@@ -1518,7 +1509,7 @@ pre-commit: fmt check test
 
 **When in Doubt:**
 
-1. **Servo API unclear?** → Check servo/examples/, search GitHub issues
+1. **wry API unclear?** → Check Tauri examples, search GitHub issues
 2. **Build failing?** → Check system deps, read full error message
 3. **Clippy warning?** → Read the suggestion, usually correct
 4. **Performance issue?** → Profile first with flamegraph, optimize hot paths
@@ -1532,19 +1523,19 @@ pre-commit: fmt check test
 **Last Updated:** 2025-10-25
 **Project Status:** Phase 1: Foundation - Milestone 1.2 Complete
 
-**Current Milestone:** 1.3 - Servo Integration
+**Current Milestone:** 1.3 - WebView Integration (Complete)
 
 **Completed:**
 
 - ✅ Milestone 1.1: Project Setup & Tooling
 - ✅ Milestone 1.2: Basic UI (tabs, URL bar, navigation)
+- ✅ Milestone 1.3: wry WebView Integration (platform WebView rendering)
 
-**Next Steps:**
+**Architecture Decision:**
 
-1. Add Servo as dependency
-2. Create renderer process wrapper
-3. Load hardcoded HTML string
-4. Display in central panel
+- Using wry v0.47 (platform WebView wrapper) for MVP
+- Powers production apps via Tauri framework
+- Can migrate to libservo when v1.0 releases (6-12 months)
 
 **Implementation Status:**
 

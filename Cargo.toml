@@ -31,17 +31,17 @@ thiserror = "1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
-# Rendering engine - Servo (2025 API with WebViewBuilder)
-# NOTE: Servo dependency currently disabled - package 'servo' not found in git repo
-# TODO: Research correct Servo embedding approach (libservo-webview, or build as library)
-# servo = { git = "https://github.com/servo/servo", branch = "main" }
-# surfman = { git = "https://github.com/servo/surfman", branch = "main" }
-# gleam = "0.15"
+# Rendering engine - wry (platform WebView wrapper)
+# Note: Using wry for MVP. Pure Servo (libservo) not mature enough yet.
+# Can migrate to libservo when v1.0 releases (currently v0.0.1)
+wry = "0.47"
 
-# GUI - we'll choose one after research
-egui = "0.30"
-eframe = { version = "0.30", default-features = false, features = ["wgpu", "persistence"] }
-# iced = "0.13"
+# GUI - using eframe for egui integration, wry for WebView
+egui = "0.31"
+eframe = { version = "0.31", default-features = false, features = ["wgpu"] }
+
+# Windowing - tao (Tauri's winit fork, compatible with wry)
+tao = "0.30"
 
 # Graphics
 wgpu = "24.0"
