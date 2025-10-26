@@ -179,7 +179,6 @@
         <div class="loading" id="loading"></div>
         <iframe
             id="content-frame"
-            src="https://example.com"
             sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
         ></iframe>
     </div>
@@ -192,6 +191,16 @@
             ],
             activeTab: 0
         };
+
+        // Normalize URL for comparison (handles trailing slashes, etc.)
+        function normalizeUrl(url) {
+            try {
+                const urlObj = new URL(url);
+                return urlObj.href;
+            } catch {
+                return url;
+            }
+        }
 
         // Update UI from state
         function updateUI() {
@@ -212,11 +221,19 @@
             if (activeTab) {
                 document.getElementById('url-input').value = activeTab.url;
 
-                // Update iframe if URL changed
+                // Update iframe if URL changed (use normalized comparison)
                 const iframe = document.getElementById('content-frame');
-                if (iframe.src !== activeTab.url) {
+                const currentSrc = normalizeUrl(iframe.src || '');
+                const targetUrl = normalizeUrl(activeTab.url);
+
+                console.log('[UPDATE] Comparing URLs - current:', currentSrc, 'target:', targetUrl);
+
+                if (currentSrc !== targetUrl) {
+                    console.log('[UPDATE] URLs differ, loading new URL');
                     showLoading();
                     iframe.src = activeTab.url;
+                } else {
+                    console.log('[UPDATE] URLs match, skipping load');
                 }
             }
         }
@@ -299,8 +316,10 @@
         let loadingTimeout = null;
 
         function showLoading() {
+            console.log('[LOADING] showLoading() called');
             const loadingEl = document.getElementById('loading');
             loadingEl.classList.add('active');
+            console.log('[LOADING] Spinner shown, classes:', loadingEl.className);
 
             // Clear any existing timeout
             if (loadingTimeout) {
@@ -309,13 +328,16 @@
 
             // Auto-hide after 10 seconds (fallback for failed loads)
             loadingTimeout = setTimeout(() => {
+                console.warn('[LOADING] TIMEOUT - hiding spinner after 10s');
                 hideLoading();
-                console.warn('Loading timeout - hiding spinner after 10s');
             }, 10000);
         }
 
         function hideLoading() {
-            document.getElementById('loading').classList.remove('active');
+            console.log('[LOADING] hideLoading() called');
+            const loadingEl = document.getElementById('loading');
+            loadingEl.classList.remove('active');
+            console.log('[LOADING] Spinner hidden, classes:', loadingEl.className);
 
             // Clear timeout
             if (loadingTimeout) {
@@ -327,32 +349,58 @@
         // iframe load events
         const iframe = document.getElementById('content-frame');
 
+        console.log('[INIT] Attaching iframe event listeners');
+
         iframe.addEventListener('load', () => {
+            console.log('[IFRAME] load event fired, src:', iframe.src);
             hideLoading();
 
             // Try to update tab title from iframe
             try {
                 const title = iframe.contentDocument.title;
+                console.log('[IFRAME] Got title:', title);
                 if (title) {
                     state.tabs[state.activeTab].title = title;
-                    updateUI();
+                    // Update only tab bar, NOT full updateUI() to prevent loop
+                    const tabBar = document.querySelector('.tab-bar');
+                    const tabs = state.tabs.map((tab, index) => `
+                        <div class="tab ${index === state.activeTab ? 'active' : ''}"
+                             data-tab-id="${tab.id}"
+                             onclick="switchTab(${index})">
+                            <span class="tab-title">${tab.title}</span>
+                            ${state.tabs.length > 1 ? `<span class="tab-close" onclick="event.stopPropagation(); closeTab(${index})">×</span>` : ''}
+                        </div>
+                    `).join('');
+                    tabBar.innerHTML = tabs + '<div class="tab-new" onclick="createTab()">+</div>';
                 }
             } catch (e) {
-                // Cross-origin, can't access title
+                // Cross-origin, can't access title - use URL as title
+                console.warn('[IFRAME] Cross-origin, cannot access title:', e.message);
                 state.tabs[state.activeTab].title = state.tabs[state.activeTab].url;
-                updateUI();
+                // Update only tab bar
+                const tabBar = document.querySelector('.tab-bar');
+                const tabs = state.tabs.map((tab, index) => `
+                    <div class="tab ${index === state.activeTab ? 'active' : ''}"
+                         data-tab-id="${tab.id}"
+                         onclick="switchTab(${index})">
+                        <span class="tab-title">${tab.title}</span>
+                        ${state.tabs.length > 1 ? `<span class="tab-close" onclick="event.stopPropagation(); closeTab(${index})">×</span>` : ''}
+                    </div>
+                `).join('');
+                tabBar.innerHTML = tabs + '<div class="tab-new" onclick="createTab()">+</div>';
             }
         });
 
         // Handle iframe load errors
-        iframe.addEventListener('error', () => {
+        iframe.addEventListener('error', (e) => {
+            console.error('[IFRAME] error event fired:', e);
             hideLoading();
-            console.error('iframe load error');
         });
 
-        // Initial UI update and hide any loading spinner
-        updateUI();
-        hideLoading();
+        // Initial setup: attach listeners first, then load initial page
+        // This ensures load/error events are caught
+        console.log('[INIT] Calling updateUI() to load initial page');
+        updateUI();  // This will trigger the initial page load with spinner
     </script>
 </body>
 </html>
