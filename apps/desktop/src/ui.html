@@ -295,17 +295,38 @@
             updateUI();
         }
 
-        // Loading indicator
+        // Loading indicator with timeout fallback
+        let loadingTimeout = null;
+
         function showLoading() {
-            document.getElementById('loading').classList.add('active');
+            const loadingEl = document.getElementById('loading');
+            loadingEl.classList.add('active');
+
+            // Clear any existing timeout
+            if (loadingTimeout) {
+                clearTimeout(loadingTimeout);
+            }
+
+            // Auto-hide after 10 seconds (fallback for failed loads)
+            loadingTimeout = setTimeout(() => {
+                hideLoading();
+                console.warn('Loading timeout - hiding spinner after 10s');
+            }, 10000);
         }
 
         function hideLoading() {
             document.getElementById('loading').classList.remove('active');
+
+            // Clear timeout
+            if (loadingTimeout) {
+                clearTimeout(loadingTimeout);
+                loadingTimeout = null;
+            }
         }
 
         // iframe load events
         const iframe = document.getElementById('content-frame');
+
         iframe.addEventListener('load', () => {
             hideLoading();
 
@@ -323,8 +344,15 @@
             }
         });
 
-        // Initial UI update
+        // Handle iframe load errors
+        iframe.addEventListener('error', () => {
+            hideLoading();
+            console.error('iframe load error');
+        });
+
+        // Initial UI update and hide any loading spinner
         updateUI();
+        hideLoading();
     </script>
 </body>
 </html>
