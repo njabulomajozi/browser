@@ -34,7 +34,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # Rendering engine - wry (platform WebView wrapper)
 # Note: Using wry for MVP. Pure Servo (libservo) not mature enough yet.
 # Can migrate to libservo when v1.0 releases (currently v0.0.1)
-wry = "0.47"
+wry = "0.53"
 
 # GUI - using eframe for egui integration, wry for WebView
 egui = "0.31"
