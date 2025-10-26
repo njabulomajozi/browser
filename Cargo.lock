@@ -1976,7 +1976,7 @@ dependencies = [
  "reqwest",
  "serde",
  "shared",
- "thiserror 1.0.69",
+ "thiserror 2.0.17",
  "tokio",
  "tracing",
  "url",
@@ -2921,7 +2921,7 @@ dependencies = [
  "rustls",
  "serde",
  "shared",
- "thiserror 1.0.69",
+ "thiserror 2.0.17",
  "tokio",
  "tracing",
  "url",
@@ -3309,7 +3309,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "serde",
- "thiserror 1.0.69",
+ "thiserror 2.0.17",
  "url",
 ]
 
@@ -3439,7 +3439,7 @@ dependencies = [
  "serde_json",
  "shared",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.17",
  "tracing",
  "url",
 ]
