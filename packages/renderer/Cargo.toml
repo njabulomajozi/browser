@@ -1,0 +1,25 @@
+[package]
+name = "renderer"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+shared = { path = "../shared" }
+
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+url = { workspace = true }
+winit = { workspace = true }
+rustls = { workspace = true }
+
+# wry WebView rendering (platform WebView wrapper)
+wry = { workspace = true }
+
+[lib]
+name = "renderer"
+path = "src/lib.rs"

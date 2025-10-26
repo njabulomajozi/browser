@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser MVP</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segui UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: #f0f0f0;
+        }
+
+        /* Tab Bar */
+        .tab-bar {
+            display: flex;
+            background: #e0e0e0;
+            padding: 4px 4px 0 4px;
+            gap: 2px;
+            height: 40px;
+        }
+
+        .tab {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: #d0d0d0;
+            border-radius: 6px 6px 0 0;
+            cursor: pointer;
+            max-width: 200px;
+            min-width: 100px;
+        }
+
+        .tab.active {
+            background: white;
+        }
+
+        .tab-title {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 13px;
+        }
+
+        .tab-close {
+            cursor: pointer;
+            color: #666;
+            font-size: 16px;
+            line-height: 1;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .tab.active .tab-close {
+            opacity: 1;
+        }
+
+        .tab:hover .tab-close {
+            opacity: 1;
+        }
+
+        .tab-close:hover {
+            color: #000;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 3px;
+        }
+
+        .tab-new {
+            padding: 8px 12px;
+            background: #d0d0d0;
+            border-radius: 6px 6px 0 0;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        .tab-new:hover {
+            background: #c0c0c0;
+        }
+
+        /* Navigation Bar */
+        .nav-bar {
+            display: flex;
+            gap: 8px;
+            padding: 8px;
+            background: white;
+            border-bottom: 1px solid #ccc;
+            height: 48px;
+        }
+
+        button {
+            padding: 6px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.15s ease;
+        }
+
+        button:hover:not(:disabled) {
+            background: #f5f5f5;
+        }
+
+        button:active:not(:disabled) {
+            background: #e0e0e0;
+        }
+
+        button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        button:focus-visible {
+            outline: 2px solid #0066cc;
+            outline-offset: 2px;
+        }
+
+        #url-input {
+            flex: 1;
+            padding: 6px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        #url-input:focus {
+            outline: none;
+            border-color: #0066cc;
+        }
+
+        /* Loading spinner (shown while page loads) */
+        .loading-container {
+            flex: 1;
+            display: none; /* Hidden by default */
+            align-items: center;
+            justify-content: center;
+            background: white;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .loading-container.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Tab Bar -->
+    <div class="tab-bar" id="tab-bar">
+        <div class="tab active" data-tab-id="0">
+            <span class="tab-title">New Tab</span>
+        </div>
+        <div class="tab-new" onclick="createTab()">+</div>
+    </div>
+
+    <!-- Navigation Bar -->
+    <div class="nav-bar" role="navigation" aria-label="Browser navigation">
+        <button
+            id="back-button"
+            onclick="goBack()"
+            title="Go back (Alt+←)"
+            aria-label="Go back"
+            disabled>←</button>
+        <button
+            id="forward-button"
+            onclick="goForward()"
+            title="Go forward (Alt+→)"
+            aria-label="Go forward"
+            disabled>→</button>
+        <button
+            id="reload-button"
+            onclick="reload()"
+            title="Reload (Ctrl+R)"
+            aria-label="Reload page">⟳</button>
+        <input
+            type="text"
+            id="url-input"
+            placeholder="Enter URL or search..."
+            value="https://example.com"
+            onkeypress="handleUrlKeypress(event)"
+            aria-label="Address bar"
+            autocomplete="off"
+            spellcheck="false"
+        />
+        <button
+            onclick="navigate()"
+            title="Navigate to URL"
+            aria-label="Navigate">Go</button>
+    </div>
+
+    <!-- Loading spinner (shown during navigation) -->
+    <div class="loading-container" id="loading-container">
+        <div class="spinner"></div>
+        <div class="loading-text">Loading page...</div>
+    </div>
+
+    <script>
+        // Browser state
+        let state = {
+            tabs: [
+                { id: 0, title: 'New Tab', url: 'https://example.com', loading: false, canGoBack: false, canGoForward: false }
+            ],
+            activeTab: 0
+        };
+
+        // Initialize keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+T: New tab
+            if (e.ctrlKey && e.key === 't') {
+                e.preventDefault();
+                createTab();
+            }
+            // Ctrl+W: Close tab
+            else if (e.ctrlKey && e.key === 'w') {
+                e.preventDefault();
+                if (state.tabs.length > 1) {
+                    closeTab(state.activeTab);
+                }
+            }
+            // Ctrl+Tab: Next tab
+            else if (e.ctrlKey && e.key === 'Tab' && !e.shiftKey) {
+                e.preventDefault();
+                switchTab((state.activeTab + 1) % state.tabs.length);
+            }
+            // Ctrl+Shift+Tab: Previous tab
+            else if (e.ctrlKey && e.key === 'Tab' && e.shiftKey) {
+                e.preventDefault();
+                switchTab((state.activeTab - 1 + state.tabs.length) % state.tabs.length);
+            }
+            // Alt+Left: Back
+            else if (e.altKey && e.key === 'ArrowLeft') {
+                e.preventDefault();
+                goBack();
+            }
+            // Alt+Right: Forward
+            else if (e.altKey && e.key === 'ArrowRight') {
+                e.preventDefault();
+                goForward();
+            }
+            // Ctrl+R or F5: Reload
+            else if ((e.ctrlKey && e.key === 'r') || e.key === 'F5') {
+                e.preventDefault();
+                reload();
+            }
+            // Ctrl+1-9: Jump to tab by index
+            else if (e.ctrlKey && e.key >= '1' && e.key <= '9') {
+                e.preventDefault();
+                const tabIndex = parseInt(e.key) - 1;
+                if (tabIndex < state.tabs.length) {
+                    switchTab(tabIndex);
+                }
+            }
+        });
+
+        // Show loading spinner
+        function showLoading() {
+            document.getElementById('loading-container').classList.add('active');
+            const activeTab = state.tabs[state.activeTab];
+            if (activeTab) {
+                activeTab.loading = true;
+            }
+        }
+
+        // Hide loading spinner
+        function hideLoading() {
+            document.getElementById('loading-container').classList.remove('active');
+            const activeTab = state.tabs[state.activeTab];
+            if (activeTab) {
+                activeTab.loading = false;
+            }
+        }
+
+        // Update tab title (called from Rust)
+        function updateTabTitle(title) {
+            console.log('[TITLE] Updating to:', title);
+            const activeTab = state.tabs[state.activeTab];
+            if (activeTab && title) {
+                activeTab.title = title;
+                updateUI();
+                hideLoading();
+            }
+        }
+
+        // Send IPC message to Rust
+        function sendIPC(message) {
+            console.log('[IPC] Sending:', message);
+            window.ipc.postMessage(JSON.stringify(message));
+        }
+
+        // Update UI from state
+        function updateUI() {
+            // Update tab bar
+            const tabBar = document.getElementById('tab-bar');
+            const tabs = state.tabs.map((tab, index) => `
+                <div class="tab ${index === state.activeTab ? 'active' : ''}"
+                     data-tab-id="${tab.id}"
+                     title="${tab.title}${tab.url !== 'https://example.com' ? ' - ' + tab.url : ''}"
+                     onclick="switchTab(${index})"
+                     role="tab"
+                     aria-selected="${index === state.activeTab}"
+                     aria-label="Tab ${index + 1}: ${tab.title}">
+                    <span class="tab-title">${tab.title}</span>
+                    ${state.tabs.length > 1 ? `<span class="tab-close" onclick="event.stopPropagation(); closeTab(${index})" title="Close tab (Ctrl+W)" aria-label="Close tab">×</span>` : ''}
+                </div>
+            `).join('');
+            tabBar.innerHTML = tabs + '<div class="tab-new" onclick="createTab()" title="New tab (Ctrl+T)" aria-label="New tab">+</div>';
+
+            // Update URL bar and navigation buttons
+            const activeTab = state.tabs[state.activeTab];
+            if (activeTab) {
+                document.getElementById('url-input').value = activeTab.url;
+
+                // Update back/forward button states
+                const backButton = document.getElementById('back-button');
+                const forwardButton = document.getElementById('forward-button');
+
+                if (backButton) {
+                    backButton.disabled = !activeTab.canGoBack;
+                }
+                if (forwardButton) {
+                    forwardButton.disabled = !activeTab.canGoForward;
+                }
+            }
+        }
+
+        // Navigation functions (send IPC to Rust)
+        function navigate() {
+            const url = document.getElementById('url-input').value;
+            console.log('[NAVIGATE] Input:', url);
+            let fullUrl = url;
+
+            // Add protocol if missing
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                // Check if it's a search query or URL
+                if (url.includes(' ') || !url.includes('.')) {
+                    // Search query
+                    fullUrl = 'https://www.google.com/search?q=' + encodeURIComponent(url);
+                } else {
+                    // Assume URL
+                    fullUrl = 'https://' + url;
+                }
+            }
+
+            console.log('[NAVIGATE] Processed URL:', fullUrl);
+            state.tabs[state.activeTab].url = fullUrl;
+            document.getElementById('url-input').value = fullUrl;
+
+            // Show loading spinner
+            showLoading();
+
+            // Send IPC message to Rust
+            sendIPC({
+                cmd: 'Navigate',
+                data: { url: fullUrl }
+            });
+        }
+
+        function goBack() {
+            console.log('[NAV] Go back');
+            sendIPC({ cmd: 'GoBack' });
+        }
+
+        function goForward() {
+            console.log('[NAV] Go forward');
+            sendIPC({ cmd: 'GoForward' });
+        }
+
+        function reload() {
+            console.log('[NAV] Reload');
+            sendIPC({ cmd: 'Reload' });
+        }
+
+        function handleUrlKeypress(event) {
+            if (event.key === 'Enter') {
+                navigate();
+            }
+        }
+
+        // Tab management
+        function createTab() {
+            console.log('[TAB] Create new tab');
+            const newTab = {
+                id: Date.now(),
+                title: 'New Tab',
+                url: 'https://example.com',
+                loading: false,
+                canGoBack: false,
+                canGoForward: false
+            };
+            state.tabs.push(newTab);
+            state.activeTab = state.tabs.length - 1;
+            updateUI();
+            navigate();
+        }
+
+        function closeTab(index) {
+            console.log('[TAB] Close tab', index);
+            if (state.tabs.length === 1) return; // Keep at least one tab
+
+            state.tabs.splice(index, 1);
+            if (state.activeTab >= state.tabs.length) {
+                state.activeTab = state.tabs.length - 1;
+            }
+            updateUI();
+            navigate();
+        }
+
+        function switchTab(index) {
+            console.log('[TAB] Switch to tab', index);
+            state.activeTab = index;
+            updateUI();
+            navigate();
+        }
+
+        // Initial setup
+        console.log('[INIT] Browser chrome ready');
+        updateUI();
+    </script>
+</body>
+</html>

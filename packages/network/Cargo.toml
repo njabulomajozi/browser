@@ -1,0 +1,26 @@
+[package]
+name = "network"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+shared = { path = "../shared" }
+
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+
+hyper = { workspace = true }
+hyper-rustls = { workspace = true }
+hyper-util = { workspace = true }
+reqwest = { workspace = true }
+url = { workspace = true }
+lru = { workspace = true }
+
+[lib]
+name = "network"
+path = "src/lib.rs"

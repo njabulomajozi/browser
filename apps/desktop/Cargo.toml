@@ -1,0 +1,37 @@
+[package]
+name = "desktop"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+# Workspace crates
+renderer = { path = "../../packages/renderer" }
+network = { path = "../../packages/network" }
+storage = { path = "../../packages/storage" }
+shared = { path = "../../packages/shared" }
+
+# External dependencies
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+
+# Windowing and WebView (tao instead of winit for wry compatibility)
+tao = { workspace = true }
+wry = { workspace = true }
+
+# URL encoding for search queries
+urlencoding = "2.1"
+
+[dev-dependencies]
+tempfile = "3.8"
+
+[[bin]]
+name = "browser"
+path = "src/main.rs"
