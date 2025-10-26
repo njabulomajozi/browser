@@ -1,7 +1,6 @@
 //! Browser MVP - Desktop Application
 //!
-//! Working browser using tao + wry (proven pattern from Tauri)
-//! Note: tao is Tauri's fork of winit, designed for wry compatibility
+//! HTML/CSS UI chrome loaded in wry WebView (Tauri pattern)
 
 use anyhow::Result;
 use tao::{
@@ -19,19 +18,23 @@ fn main() -> Result<()> {
         .with_target(false)
         .init();
 
-    info!("Starting Browser MVP (tao + wry)");
+    info!("Starting Browser MVP (HTML UI in wry)");
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
-        .with_title("Browser MVP - tao + wry")
+        .with_title("Browser MVP")
+        .with_inner_size(tao::dpi::LogicalSize::new(1024.0, 768.0))
         .build(&event_loop)?;
 
+    // Load HTML UI from file
+    let html_ui = include_str!("ui.html");
+
     let _webview = WebViewBuilder::new()
-        .with_url("https://example.com")
+        .with_html(html_ui)
         .with_devtools(cfg!(debug_assertions))
         .build(&window)?;
 
-    info!("✅ Browser MVP ready - Rendering https://example.com");
+    info!("✅ Browser MVP ready with HTML UI chrome");
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
