@@ -56,7 +56,7 @@ rustls = { version = "0.23", features = ["ring"] }  # Crypto provider for Servo
 
 # Storage
 rusqlite = { version = "0.37", features = ["bundled"] }
-lru = "0.12"
+lru = "0.16"
 
 # URL parsing
 url = "2.5"
