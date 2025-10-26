@@ -41,7 +41,7 @@ egui = "0.31"
 eframe = { version = "0.31", default-features = false, features = ["wgpu"] }
 
 # Windowing - tao (Tauri's winit fork, compatible with wry)
-tao = "0.30"
+tao = "0.34"
 
 # Graphics
 wgpu = "24.0"
